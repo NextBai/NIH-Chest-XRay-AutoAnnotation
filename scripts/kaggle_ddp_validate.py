@@ -13,6 +13,8 @@ PROJ = "/kaggle/working/NIH-Chest-XRay-AutoAnnotation"
 if not os.path.exists(PROJ):
     subprocess.run(["git", "clone", "--depth", "1", REPO], cwd="/kaggle/working", check=True)
 sys.path.insert(0, PROJ)
+# mp.spawn children are fresh interpreters: PYTHONPATH (env) lets them import src.*
+os.environ["PYTHONPATH"] = PROJ + os.pathsep + os.environ.get("PYTHONPATH", "")
 
 # 2) 安裝必要套件
 subprocess.run([sys.executable, "-m", "pip", "install", "-q", "timm==1.0.27", "grad-cam"], check=True)
@@ -46,6 +48,8 @@ print("image dirs:", len(cfg.paths.image_search_dirs()), flush=True)
 cfg.runtime.use_ddp = n_gpu > 1
 cfg.runtime.num_workers = 2
 cfg.runtime.batch_size = 32
+# 純 DDP+AMP plumbing 驗證：免下載預訓練權重以降低雲端 flakiness
+cfg.model.pretrained = False
 
 from src.train.train_classifier import train_entry  # noqa: E402
 
