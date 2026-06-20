@@ -1,0 +1,44 @@
+# ===== NIH ChestX-ray14 專案 .gitignore =====
+# 關鍵：112,120 張影像 (~45GB) 絕不可進 git
+data/images_*/
+data/**/*.png
+data/**/*.jpg
+
+# 但保留 metadata CSV（小檔、版本控制必要）
+!data/metadata/
+!data/metadata/*.csv
+!data/metadata/*.txt
+
+# 訓練產物
+artifacts/
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+runs/
+wandb/
+lightning_logs/
+
+# 視覺化大圖（保留少量範例於 docs/samples）
+artifacts/viz/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# 機敏
+*.env
+kaggle.json
+.kaggle/
+secrets/

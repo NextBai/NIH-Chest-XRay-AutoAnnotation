@@ -1,0 +1,17 @@
+# ===== NIH ChestX-ray14 弱監督自動標註 + DDP 訓練 =====
+# 本機 (RTX 3060 6GB, CUDA 12.1) 與 Kaggle (T4x2) 共用
+# torch/torchvision 由環境提供 (本機 2.5.1+cu121)，此處不釘版避免覆蓋 CUDA build
+# torch>=2.4          # AMP 新 API: torch.amp.autocast / torch.amp.GradScaler
+# torchvision>=0.19
+
+timm==1.0.27                 # DenseNet121 / ConvNeXt backbone
+grad-cam>=1.5.0              # pytorch-grad-cam: GradCAM / GradCAMPlusPlus
+albumentations>=1.4.0        # 影像增強（多線程安全）
+opencv-python-headless>=4.10 # bbox 輪廓擷取（headless 避免 Kaggle GUI 依賴）
+pandas>=2.2
+numpy>=1.26
+scikit-learn>=1.4            # patient-wise split / metrics
+matplotlib>=3.9              # 信心分數視覺化
+tqdm>=4.66
+pyarrow>=15.0                # parquet 快取，加速 I/O
+Pillow>=10.0
