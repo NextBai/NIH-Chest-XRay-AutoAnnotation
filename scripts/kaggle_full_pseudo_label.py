@@ -38,19 +38,42 @@ def _bootstrap():
                        cwd="/kaggle/working", check=True)
     subprocess.run([sys.executable, "-m", "pip", "install", "-q",
                     "timm==1.0.27", "grad-cam"], check=True)
+    cfg_py = Path(PROJ) / "configs" / "config.py"
+    if not cfg_py.exists():
+        raise RuntimeError(f"clone incomplete -- {cfg_py} missing; "
+                           f"PROJ entries={[p.name for p in Path(PROJ).iterdir()]}")
+    os.chdir(PROJ)
     sys.path.insert(0, PROJ)
     os.environ["PYTHONPATH"] = PROJ + os.pathsep + os.environ.get("PYTHONPATH", "")
+    log(f"PROJ ready: {sorted(p.name for p in Path(PROJ).iterdir())}")
 
 
 def _discover_inputs():
+    """Prefer paths under /kaggle/input/datasets/ (real dataset mount).
+
+    Stage 8 first-run bug: rglob returned the CSV from the attached prior
+    notebook output (which has metadata-only `data/metadata/Data_Entry_2017.csv`
+    but no `images_*` dirs) ahead of the real dataset. Filter explicitly.
+    """
     root = Path("/kaggle/input")
     log(f"/kaggle/input entries: {[p.name for p in root.iterdir()]}")
-    csv_hits = list(root.rglob("Data_Entry_2017.csv"))
+
+    def _prefer_dataset(hits):
+        ds = [h for h in hits if "/datasets/" in h.as_posix()]
+        return (ds or hits)
+
+    csv_hits = _prefer_dataset(list(root.rglob("Data_Entry_2017.csv")))
     if not csv_hits:
         raise FileNotFoundError("Data_Entry_2017.csv not mounted")
     csv = csv_hits[0]
     data_dir = csv.parent
-    bbox_hits = list(root.rglob("BBox_List_2017.csv"))
+    # If data_dir has no images_*/images, walk up to find one that does.
+    if not list(data_dir.glob("images_*/images")):
+        for parent in [data_dir.parent, data_dir.parent.parent]:
+            if list(parent.glob("images_*/images")):
+                data_dir = parent
+                break
+    bbox_hits = _prefer_dataset(list(root.rglob("BBox_List_2017.csv")))
     bbox = bbox_hits[0] if bbox_hits else data_dir / "BBox_List_2017.csv"
     ckpt_hits = list(root.rglob("classifier_best.pt"))
     if not ckpt_hits:
@@ -59,8 +82,13 @@ def _discover_inputs():
             "xiaobai1221/nih-full-train-t4x2 as Input")
     ckpt = ckpt_hits[0]
     img_dirs = sorted(data_dir.glob("images_*/images"))
+    log(f"csv={csv}")
     log(f"data_dir={data_dir}  image dirs={len(img_dirs)}  "
         f"bbox={'found' if bbox_hits else 'MISSING'}  ckpt={ckpt}")
+    if len(img_dirs) == 0:
+        raise FileNotFoundError(
+            f"no images_*/images under {data_dir} -- dataset mount layout "
+            f"unexpected. Hits were: {[h.as_posix() for h in csv_hits[:5]]}")
     return data_dir, csv, bbox, ckpt
 
 
