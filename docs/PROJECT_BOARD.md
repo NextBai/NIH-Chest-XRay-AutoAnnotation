@@ -1,6 +1,6 @@
 # 專案看板 — NIH ChestX-ray14 自動標註與 DDP 訓練
 
-> 即時更新的 5 階段看板。同步至 GitHub 與 Notion。
+> 即時更新的看板。同步至 GitHub 與 Notion。
 
 | # | 階段 | 狀態 | 產出 |
 |---|------|------|------|
@@ -8,7 +8,8 @@
 | 2 | 專案追蹤初始化 | ✅ Done | repo 結構 + docs 看板 + GitHub + Notion |
 | 3 | Kaggle 資料與 I/O 優化 | ✅ Done | I/O 優化 DataLoader,本機 RTX 3060 跑通(無阻塞) |
 | 4 | 自動標註管線 | ✅ Done | Grad-CAM++ → bbox + 信心篩選 + 視覺化 |
-| 5 | DDP + AMP 訓練腳本 | ✅ Done(雲端實測通過) | **Kaggle Tesla T4×2 真實雙卡 nccl DDP+AMP 驗證成功**(2026-06-20) |
+| 5 | DDP + AMP 訓練腳本 | ✅ Done(雲端實測通過) | Kaggle Tesla T4×2 真實雙卡 nccl DDP+AMP 驗證(2026-06-20, EXP-002) |
+| 6 | **完整訓練 + 偽標籤生成** | ✅ **Done(雲端跑完)** | **T4×2 / 15 epoch / 4h38m;10,022 bbox / 2,666 圖,信心直方圖**(EXP-003) |
 
 ## 關鍵決策
 
@@ -16,15 +17,18 @@
 - **硬體校正**:本機 RTX 3060 Laptop 為 **6GB**(非 8GB),batch size 保守設 16(smoke 用 8)。
 - **策略**:984 框太少,改弱監督 — 影像級標籤訓練分類器 → Grad-CAM++ 轉 bbox → 984 框做 IoU 校準。
 
-## 下一步(Kaggle 雲端)
+## 下一步
 
-1. ✅ T4×2 DDP+AMP 機制驗證通過(EXP-002,nccl 雙卡 allreduce OK)。
-2. 上傳 dataset + notebook,T4×2 **完整訓練**分類器(`use_ddp=True`,跑足 epoch)。
-3. 全集 112K 推論生成虛擬標籤,信心分數分佈分析。
+1. ✅ T4×2 DDP+AMP 機制驗證通過(EXP-002)。
+2. ✅ T4×2 完整訓練 + 偽標籤(取樣 3000)+ 信心直方圖(EXP-003)。
+3. 全集 112K 偽標籤推論(專屬 run)。
 4. IoU 校準 `heatmap_thresh` / `confidence_thresh` 對齊 984 醫師框。
-5. 以虛擬標籤訓練定位/裁切模型。
+5. 以偽標籤訓練定位/裁切模型。
 
 ## Kaggle GPU 機型備註
 
-要取得 **T4×2 雙卡**,Kaggle 機型只需指定 **`Tesla T4`**,系統自動配 2 顆。
+要取得 **T4×2 雙卡**,Kaggle 機型只需指定 **`Tesla T4`**(網頁 UI Accelerator 選 `GPU T4 x2`),系統自動配 2 顆。
 切勿用 `gpu1xT4x2` 等字串 — 會觸發 lottery 配到 **P100(sm_60)**,而 Kaggle PyTorch 2.10+cu128 最低支援 sm_70,會在 `DDP(model)` 廣播階段崩 `cudaErrorNoKernelImageForDevice`。
+
+**MCP 提交大型訓練的可行路徑**:`save_notebook` 不一定能正確 attach dataset,且 `enableGpu` 預設 P100;最穩做法是**在 Kaggle 網頁 UI 手動 Add Input(`nih-chest-xrays/data`)+ 選 `GPU T4 x2`**,程式碼端只負責動態偵測 `/kaggle/input` 路徑與 `torch.cuda.device_count()` 自動 DDP。
+
